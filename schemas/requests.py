@@ -1,15 +1,14 @@
 """
 Esquemas de request para el API Gateway
-Compatible con formato OpenAI Chat Completions
+Compatible con formato OpenAI Chat Completions con extensiones multimodales
 """
 from pydantic import BaseModel, Field
 from typing import List, Union, Literal, Optional, Dict, Any
 
 
-class ImageURL(BaseModel):
-    """URL de imagen para contenido multimodal"""
-    url: str
-
+# ==========================================
+# CONTENIDO MULTIMODAL
+# ==========================================
 
 class TextContent(BaseModel):
     """Contenido de tipo texto"""
@@ -17,14 +16,14 @@ class TextContent(BaseModel):
     text: str
 
 
-class ImageContent(BaseModel):
-    """Contenido de tipo imagen"""
-    type: Literal["image_url"] = "image_url"
-    image_url: ImageURL
+class FileReference(BaseModel):
+    """Referencia a archivo adjunto por índice"""
+    type: Literal["image", "audio", "document"]
+    file_index: int = Field(..., description="Índice del archivo en la lista de archivos adjuntos")
 
 
-# Union type para contenido mixto (texto o imagen)
-ContentPart = Union[TextContent, ImageContent]
+# Union type para contenido mixto (texto o referencia a archivo)
+ContentPart = Union[TextContent, FileReference]
 
 
 class ChatMessage(BaseModel):
@@ -43,16 +42,21 @@ class ChatMessage(BaseModel):
                     "role": "user",
                     "content": [
                         {"type": "text", "text": "¿Qué ves en esta imagen?"},
-                        {"type": "image_url", "image_url": {"url": "https://example.com/image.jpg"}}
+                        {"type": "image", "file_index": 0}
                     ]
                 }
             ]
         }
 
 
+# ==========================================
+# REQUEST PRINCIPAL
+# ==========================================
+
 class ChatCompletionRequest(BaseModel):
     """
-    Request principal para chat completions con routing inteligente
+    Request para chat completions con soporte multimodal
+    Acepta archivos multimedia directamente en multipart/form-data
     """
     # Parámetros de routing
     task: Literal["chat", "vision", "ocr", "embedding"] = Field(
@@ -106,8 +110,7 @@ class ChatCompletionRequest(BaseModel):
                     "messages": [
                         {"role": "user", "content": "Resume este documento confidencial..."}
                     ],
-                    "temperature": 0.7,
-                    "max_tokens": 500
+                    "temperature": 0.7
                 },
                 {
                     "task": "vision",
@@ -117,7 +120,7 @@ class ChatCompletionRequest(BaseModel):
                             "role": "user",
                             "content": [
                                 {"type": "text", "text": "¿Qué lugar es este?"},
-                                {"type": "image_url", "image_url": {"url": "https://example.com/image.jpg"}}
+                                {"type": "image", "file_index": 0}
                             ]
                         }
                     ]

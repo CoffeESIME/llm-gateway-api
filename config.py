@@ -26,7 +26,7 @@ class Settings(BaseSettings):
         },
         "vision": {
             "strict": "ollama/qwen3-vl:8b",
-            "flexible": "gemini/gemini-2.5-pro"
+            "flexible": "gemini/gemini-2.5-flash"  # Corregido: agregado prefijo gemini/
         },
         "ocr": {
             "strict": "ollama/deepseek-ocr:3b",

@@ -9,7 +9,8 @@ import soundfile as sf
 import numpy as np
 from typing import List, Dict, Any, Optional
 from PIL import Image
-
+import os
+os.environ["HF_HUB_OFFLINE"] = "1"
 # Librerías de Modelos
 from sentence_transformers import SentenceTransformer
 from transformers import SiglipProcessor, SiglipModel, ClapProcessor, ClapModel
