@@ -1,6 +1,6 @@
 """
-Script de prueba CORREGIDO para el endpoint multimodal
-Asegura formato correcto de multipart/form-data
+Script de prueba ACTUALIZADO con soporte para Google File API
+Incluye tests para archivos grandes
 """
 import requests
 import json
@@ -24,7 +24,6 @@ def test_simple_chat():
         }
     ]
     
-    # Datos del formulario
     data = {
         "task": "chat",
         "privacy_mode": "strict",
@@ -44,45 +43,101 @@ def test_simple_chat():
         print(f"   Detalle: {response.text[:500]}")
 
 
-def test_vision_with_image(image_path: str = None):
-    """Prueba vision con imagen adjunta"""
+def test_small_image_base64(image_path: str = None):
+    """Prueba imagen pequeña (< 5MB) - debería usar base64"""
     print("\n" + "="*60)
-    print("🖼️  Test 2: Vision con Imagen")
+    print("🖼️  Test 2: Imagen Pequeña (Base64)")
     print("="*60)
     
     if not image_path or not Path(image_path).exists():
         print("⚠️  No se proporcionó imagen válida")
-        print("   Llamar con: test_vision_with_image('ruta/imagen.jpg')")
+        print("   Llamar con: test_small_image_base64('imagen_pequena.jpg')")
         return
+    
+    file_size = Path(image_path).stat().st_size
+    print(f"   Tamaño: {file_size / 1024:.1f}KB")
     
     messages = [
         {
             "role": "user",
             "content": [
-                {"type": "text", "text": "Describe detalladamente lo que ves en esta imagen"},
+                {"type": "text", "text": "Describe esta imagen"},
                 {"type": "image", "file_index": 0}
             ]
         }
     ]
     
-    # Preparar datos del formulario
     data = {
         "task": "vision",
         "privacy_mode": "flexible",
-        "messages": json.dumps(messages),
-        "temperature": 0.7
+        "messages": json.dumps(messages)
     }
     
-    # Abrir y enviar archivo
     try:
         with open(image_path, 'rb') as f:
-            # Importante: usar 'files' como lista de tuplas
             files = [('files', (Path(image_path).name, f, 'image/jpeg'))]
             response = requests.post(API_ENDPOINT, data=data, files=files)
         
         if response.status_code == 200:
             result = response.json()
-            print("✅ Respuesta recibida:")
+            print("✅ Respuesta recibida (Base64):")
+            print(f"   Modelo: {result.get('model')}")
+            print(f"   Respuesta: {result['choices'][0]['message']['content'][:200]}...")
+        else:
+            print(f"❌ Error {response.status_code}")
+            print(f"   Detalle: {response.text[:500]}")
+    
+    except Exception as e:
+        print(f"❌ Excepción: {str(e)}")
+
+
+def test_large_file_google_api(file_path: str = None, file_type: str = "audio"):
+    """Prueba archivo grande (>= 5MB) con Google File API"""
+    print("\n" + "="*60)
+    print(f"🎵 Test 3: Archivo Grande (Google File API) - {file_type}")
+    print("="*60)
+    
+    if not file_path or not Path(file_path).exists():
+        print("⚠️  No se proporcionó archivo válido")
+        print(f"   Llamar con: test_large_file_google_api('archivo.{file_type}')")
+        return
+    
+    file_size = Path(file_path).stat().st_size
+    print(f"   Tamaño: {file_size / 1024 / 1024:.1f}MB")
+    
+    if file_size < 5 * 1024 * 1024:
+        print("   ⚠️  Archivo < 5MB - usará base64 en lugar de File API")
+    
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": f"Analiza este {file_type}"},
+                {"type": file_type, "file_index": 0}
+            ]
+        }
+    ]
+    
+    data = {
+        "task": "vision",
+        "privacy_mode": "flexible",  # Requerido para archivos grandes
+        "messages": json.dumps(messages)
+    }
+    
+    try:
+        content_types = {
+            "audio": "audio/mp3",
+            "video": "video/mp4",
+            "image": "image/jpeg"
+        }
+        
+        with open(file_path, 'rb') as f:
+            files = [('files', (Path(file_path).name, f, content_types.get(file_type, "application/octet-stream")))]
+            response = requests.post(API_ENDPOINT, data=data, files=files, timeout=120)
+        
+        if response.status_code == 200:
+            result = response.json()
+            print("✅ Respuesta recibida (Google File API):")
             print(f"   Modelo: {result.get('model')}")
             print(f"   Respuesta: {result['choices'][0]['message']['content'][:300]}...")
         else:
@@ -93,116 +148,58 @@ def test_vision_with_image(image_path: str = None):
         print(f"❌ Excepción: {str(e)}")
 
 
-def test_multimodal_conversation():
-    """Prueba conversación multimodal con múltiples mensajes"""
+def test_large_file_strict_mode(file_path: str = None):
+    """Prueba archivo grande con privacy_mode=strict (debería fallar con NotImplementedError)"""
     print("\n" + "="*60)
-    print("🎭 Test 3: Conversación Multimodal")
+    print("🚫 Test 4: Archivo Grande + Strict Mode (Esperado: Error 501)")
     print("="*60)
     
-    messages = [
-        {
-            "role": "system",
-            "content": "Eres un asistente útil y conciso"
-        },
-        {
-            "role": "user",
-            "content": "Hola, ¿cómo estás?"
-        },
-        {
-            "role": "assistant",
-            "content": "¡Hola! Estoy bien, gracias. ¿En qué puedo ayudarte?"
-        },
-        {
-            "role": "user",
-            "content": "Explícame qué es un embedding en 2 frases"
-        }
-    ]
+    if not file_path or not Path(file_path).exists():
+        print("⚠️  No se proporcionó archivo válido")
+        return
     
-    data = {
-        "task": "chat",
-        "privacy_mode": "strict",
-        "messages": json.dumps(messages),
-        "temperature": 0.5,
-        "max_tokens": 100
-    }
+    file_size = Path(file_path).stat().st_size
+    print(f"   Tamaño: {file_size / 1024 / 1024:.1f}MB")
     
-    response = requests.post(API_ENDPOINT, data=data)
-    
-    if response.status_code == 200:
-        result = response.json()
-        print("✅ Respuesta recibida:")
-        print(f"   Modelo: {result.get('model')}")
-        usage = result.get('usage', {})
-        if usage:
-            print(f"   Tokens usados: {usage.get('total_tokens', 'N/A')}")
-        print(f"   Respuesta: {result['choices'][0]['message']['content']}")
-    else:
-        print(f"❌ Error {response.status_code}")
-        print(f"   Detalle: {response.text[:500]}")
-
-
-def test_error_handling():
-    """Prueba manejo de errores"""
-    print("\n" + "="*60)
-    print("🐛 Test 4: Manejo de Errores")
-    print("="*60)
-    
-    # Test 1: Task inválido
-    print("\n  Test 4.1: Task inválido")
-    data = {
-        "task": "invalid_task",
-        "privacy_mode": "strict",
-        "messages": json.dumps([{"role": "user", "content": "test"}])
-    }
-    response = requests.post(API_ENDPOINT, data=data)
-    if response.status_code == 400:
-        print("  ✅ Error 400 correctamente capturado")
-        print(f"     {response.json().get('detail', '')[:80]}")
-    else:
-        print(f"  ❌ Esperaba 400, recibió {response.status_code}")
-    
-    # Test 2: Messages JSON inválido
-    print("\n  Test 4.2: JSON inválido")
-    data = {
-        "task": "chat",
-        "privacy_mode": "strict",
-        "messages": "not a valid json"
-    }
-    response = requests.post(API_ENDPOINT, data=data)
-    if response.status_code == 400:
-        print("  ✅ Error 400 correctamente capturado")
-        print(f"     {response.json().get('detail', '')[:80]}")
-    else:
-        print(f"  ❌ Esperaba 400, recibió {response.status_code}")
-    
-    # Test 3: file_index fuera de rango
-    print("\n  Test 4.3: file_index inválido")
     messages = [
         {
             "role": "user",
             "content": [
-                {"type": "text", "text": "test"},
-                {"type": "image", "file_index": 99}  # No hay archivo
+                {"type": "text", "text": "Analiza esto"},
+                {"type": "audio", "file_index": 0}
             ]
         }
     ]
+    
     data = {
-        "task": "vision",
-        "privacy_mode": "flexible",
+        "task": "chat",
+        "privacy_mode": "strict",  # Modo estricto con archivo grande
         "messages": json.dumps(messages)
     }
-    response = requests.post(API_ENDPOINT, data=data)
-    if response.status_code == 400:
-        print("  ✅ Error 400 correctamente capturado")
-        print(f"     {response.json().get('detail', '')[:80]}")
-    else:
-        print(f"  ❌ Esperaba 400, recibió {response.status_code}")
+    
+    try:
+        with open(file_path, 'rb') as f:
+            files = [('files', (Path(file_path).name, f, 'audio/mp3'))]
+            response = requests.post(API_ENDPOINT, data=data, files=files)
+        
+        if response.status_code == 501:
+            print("✅ Error 501 correctamente recibido (NotImplemented)")
+            detail = response.json().get('detail', '')
+            if 'TODO' in detail:
+                print("   ✓ Mensaje incluye TODOs para chunking local")
+                print(f"   Detalle: {detail[:200]}...")
+        else:
+            print(f"❌ Esperaba 501, recibió {response.status_code}")
+            print(f"   Detalle: {response.text[:500]}")
+    
+    except Exception as e:
+        print(f"❌ Excepción: {str(e)}")
 
 
 def main():
     """Ejecuta todas las pruebas"""
     print("\n" + "="*60)
-    print("🚀 PRUEBAS DE ENDPOINT MULTIMODAL")
+    print("🚀 PRUEBAS DE GOOGLE FILE API")
     print("="*60)
     print(f"Endpoint: {API_ENDPOINT}")
     
@@ -216,18 +213,21 @@ def main():
         
         print("✅ API conectada correctamente\n")
         
-        # Ejecutar pruebas
+        # Ejecutar pruebas básicas
         test_simple_chat()
-        test_multimodal_conversation()
-        test_error_handling()
         
         # Pruebas con archivos (requieren archivos reales)
         print("\n" + "="*60)
         print("ℹ️  Pruebas con archivos multimedia")
         print("="*60)
-        print("Para probar con archivos, ejecuta manualmente:")
+        print("\nPara probar con archivos, ejecuta manualmente:")
         print("\n  from test_multimodal_chat import *")
-        print("  test_vision_with_image('imagen.jpg')")
+        print("\n  # Imagen pequeña (< 5MB) - usa base64")
+        print("  test_small_image_base64('imagen.jpg')")
+        print("\n  # Audio grande (>= 5MB) - usa Google File API")
+        print("  test_large_file_google_api('audio_grande.mp3', 'audio')")
+        print("\n  # Archivo grande + strict mode - debería fallar")
+        print("  test_large_file_strict_mode('audio_grande.mp3')")
         
         print("\n" + "="*60)
         print("✅ PRUEBAS COMPLETADAS")

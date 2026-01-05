@@ -12,6 +12,27 @@ Endpoint unificado de chat completions que acepta archivos multimedia directamen
 
 ---
 
+## 📊 Límites de Archivos
+
+La API maneja archivos de forma inteligente según su tamaño:
+
+| Tamaño | Estrategia | Privacy Mode Requerido | Max Size |
+|--------|------------|------------------------|----------|
+| **< 5MB** | Base64 data URI | Cualquiera | 5MB |
+| **>= 5MB** | Google File API | `flexible` solamente | 100MB |
+
+**Google File API:**
+- Archivos >= 5MB se suben temporalmente a servidores de Google
+- Se obtiene una URI que se pasa a Gemini
+- Google auto-elimina archivos después de 48 horas
+- Solo funciona con `privacy_mode=flexible` (Gemini)
+
+**Archivos grandes con `privacy_mode=strict`:**
+- No soportado actualmente (retorna error 501)
+- En roadmap: chunking local con ffmpeg para video/audio
+
+---
+
 ## 🚀 Uso Básico
 
 ### Endpoint

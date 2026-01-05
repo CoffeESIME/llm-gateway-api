@@ -42,7 +42,7 @@ async def chat_completions(
     Endpoint de chat completions con soporte multimodal
     
     **Formato Multipart/Form-Data:**
-    - task: "chat" | "vision" | "ocr" | "embedding"
+    - task: "chat" | "vision" | "ocr"
     - privacy_mode: "strict" | "flexible"
     - messages: JSON string con mensajes
     - files: Archivos multimedia (opcional)
@@ -62,10 +62,10 @@ async def chat_completions(
     """
     try:
         # 1. Validar task y privacy_mode primero (antes de procesar archivos)
-        if task not in ["chat", "vision", "ocr", "embedding"]:
+        if task not in ["chat", "vision", "ocr"]:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Task inválido: {task}. Debe ser: chat, vision, ocr, embedding"
+                detail=f"Task inválido: {task}. Debe ser: chat, vision, ocr"
             )
         
         if privacy_mode not in ["strict", "flexible"]:
@@ -113,7 +113,18 @@ async def chat_completions(
                     )
         
         # 4. Preparar mensajes con archivos
-        prepared_messages = prepare_multimodal_content(messages_data, files_metadata)
+        try:
+            prepared_messages = prepare_multimodal_content(
+                messages_data, 
+                files_metadata,
+                privacy_mode=privacy_mode  # Pasar privacy_mode para decisión de File API
+            )
+        except NotImplementedError as e:
+            # Archivo grande con privacy_mode=strict (chunking no implementado)
+            raise HTTPException(
+                status_code=status.HTTP_501_NOT_IMPLEMENTED,
+                detail=str(e)
+            )
         
         # 5. Seleccionar modelo usando el router
         selected_model = model_router.select_model(

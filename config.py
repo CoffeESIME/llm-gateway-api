@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     # Logging
     log_level: str = "INFO"
     
+    # File Processing Configuration
+    LARGE_FILE_THRESHOLD: int = 5 * 1024 * 1024  # 5MB - archivos mayores usan Google File API
+    
     # Model Router Configuration
     # Mapeo de tareas y modos de privacidad a modelos específicos
     MODEL_ROUTER: Dict[str, Dict[str, str]] = {
@@ -32,10 +35,6 @@ class Settings(BaseSettings):
             "strict": "ollama/deepseek-ocr:3b",
             "flexible": "gemini/gemini-2.5-flash"
         },
-        "embedding": {
-            "strict": "ollama/nomic-embed-text:latest",
-            "flexible": "ollama/nomic-embed-text:latest"
-        }
     }
     
     # Configuración de Modelos de Embedding Multimodales
