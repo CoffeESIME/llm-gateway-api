@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import logging
 
 from config import settings
-from routers import chat
+from routers import chat, embeddings
 
 # Configurar logging
 logging.basicConfig(
@@ -37,6 +37,7 @@ app.add_middleware(
 
 # Incluir routers
 app.include_router(chat.router, prefix="/v1", tags=["Chat Completions"])
+app.include_router(embeddings.router)  # Ya incluye el prefix /v1/embeddings
 
 
 @app.get("/health", tags=["Health"])
