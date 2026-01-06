@@ -1,230 +1,355 @@
 # LLM Gateway API
 
-API Gateway inteligente que enruta automáticamente peticiones entre modelos locales (Ollama) y modelos en la nube (Google Gemini) basándose en el parámetro de privacidad del usuario.
+API Gateway inteligente con soporte multimodal que enruta automáticamente entre modelos locales (Ollama) y cloud (Google Gemini) basándose en privacidad y tipo de tarea.
 
 ## 🎯 Características
 
-- **Routing Inteligente**: Selección automática de modelo basada en tipo de tarea y modo de privacidad
-- **Multi-Modal**: Soporte para texto, visión, OCR y embeddings
-- **Compatible OpenAI**: Formato de API compatible con OpenAI Chat Completions
-- **Local + Cloud**: Usa modelos locales Ollama para privacidad estricta, Gemini para flexibilidad
-- **FastAPI**: API moderna con documentación automática (Swagger)
+- **🎭 Multimodal**: Chat, Vision, OCR con soporte para texto, imágenes, audio y video
+- **📁 Archivos Directos**: Sube archivos multimedia directamente (hasta 100MB)
+- **🔐 Privacy-First**: Modelos locales para datos sensibles, cloud para máximo rendimiento
+- **🚀 Google File API**: Manejo inteligente de archivos grandes (>= 5MB)
+- **📊 Embeddings**: API separada para embeddings de texto, imagen y audio
+- **🔄 Compatible OpenAI**: Formato de API estándar
+- **📚 FastAPI**: Documentación Swagger automática
 
-## 📋 Requisitos Previos
+---
 
-1. **Python 3.10+**
-2. **Ollama** instalado y corriendo con los siguientes modelos:
-   - `CognitiveComputations/dolphin-mistral-nemo:latest`
-   - `qwen3-vl:8b`
-   - `deepseek-ocr:3b`
-   - `nomic-embed-text:latest`
-3. **Google Gemini API Key** (para modo flexible)
+## 📋 Requisitos
 
-## 🚀 Instalación
+### Software
+- **Python 3.10+**
+- **Ollama** (para modelos locales)
+- **NVIDIA GPU** (opcional, para embeddings acelerados)
 
-### 1. Clonar e instalar dependencias
+### API Keys
+- **Google Gemini API Key** (para `privacy_mode=flexible`)
+
+### Modelos Ollama
+```bash
+ollama pull CognitiveComputations/dolphin-mistral-nemo:latest
+ollama pull qwen3-vl:8b
+ollama pull deepseek-ocr:3b
+```
+
+---
+
+## 🚀 Instalación Rápida
 
 ```bash
-# Navegar al directorio
+# 1. Clonar e instalar
 cd llm-endpoints
-
-# Crear entorno virtual (recomendado)
 python -m venv venv
 .\venv\Scripts\activate  # Windows
-# source venv/bin/activate  # Linux/Mac
-
-# Instalar dependencias
 pip install -r requirements.txt
-```
 
-### 2. Configurar variables de entorno
-
-```bash
-# Copiar el archivo de ejemplo
+# 2. Configurar API Key
 copy .env.example .env
+# Editar .env y agregar tu GEMINI_API_KEY
 
-# Editar .env con tu editor y agregar tu GEMINI_API_KEY
-# Asegúrate de reemplazar 'your_gemini_api_key_here' con tu API key real
-```
-
-> [!IMPORTANT]
-> **Debes crear el archivo `.env`** copiando `.env.example` y agregando tu `GEMINI_API_KEY` real.
-> Sin esta API key, solo podrás usar `privacy_mode: "strict"` (modelos locales).
-
-### 3. Verificar Ollama
-
-```bash
-# Verificar que Ollama está corriendo
-ollama list
-
-# Debería mostrar los modelos instalados
-# Si faltan modelos, descargarlos:
-# ollama pull CognitiveComputations/dolphin-mistral-nemo:latest
-# ollama pull qwen3-vl:8b
-# ollama pull deepseek-ocr:3b
-# ollama pull nomic-embed-text:latest
-```
-
-### 4. Iniciar el servidor
-
-```bash
-# Opción 1: Usar uvicorn directamente
-uvicorn main:app --reload --port 8765
-
-# Opción 2: Ejecutar el script main.py
+# 3. Iniciar servidor
 python main.py
 ```
 
-El servidor estará disponible en: `http://localhost:8765`
+**Servidor:** http://localhost:8765  
+**Docs:** http://localhost:8765/docs
 
-## 📚 Documentación Interactiva
+---
 
-Una vez iniciado el servidor:
-- **Swagger UI**: http://localhost:8765/docs
-- **ReDoc**: http://localhost:8765/redoc
+## 📚 Endpoints Principales
 
-## 🔧 Uso
+### 1. Chat Completions `/v1/chat/completions`
 
-### Estructura de la Petición
+Endpoint multimodal con soporte para archivos adjuntos.
 
-```json
-{
-  "task": "chat | vision | ocr | embedding",
-  "privacy_mode": "strict | flexible",
-  "messages": [
-    {"role": "user", "content": "..."}
-  ],
-  "temperature": 0.7,
-  "max_tokens": 500
-}
-```
+**Formato:** `multipart/form-data`
 
-**Parámetros principales:**
-- `task`: Tipo de tarea a realizar
-- `privacy_mode`: 
-  - `strict`: Usa modelos locales (Ollama)
-  - `flexible`: Usa modelos cloud (Gemini)
+**Parámetros:**
+- `task`: `"chat"` | `"vision"` | `"ocr"`
+- `privacy_mode`: `"strict"` (local) | `"flexible"` (cloud)
+- `messages`: JSON string con mensajes
+- `files`: Archivos multimedia (opcional)
 
-### Ejemplo 1: Chat Privado (Local)
+**Límites de archivos:**
+| Tamaño | Estrategia | Privacy Mode |
+|--------|------------|--------------|
+| < 5MB | Base64 | Cualquiera |
+| >= 5MB | Google File API | `flexible` |
+
+#### Ejemplo 1: Chat Simple
 
 ```bash
 curl -X POST http://localhost:8765/v1/chat/completions \
--H "Content-Type: application/json" \
--d '{
-  "task": "chat",
-  "privacy_mode": "strict",
-  "messages": [{"role": "user", "content": "Resume este texto confidencial..."}],
-  "temperature": 0.7,
-  "max_tokens": 500
-}'
+  -F 'task=chat' \
+  -F 'privacy_mode=strict' \
+  -F 'messages=[{"role":"user","content":"Resume este texto confidencial"}]'
 ```
 
-**Modelo usado**: `ollama/CognitiveComputations/dolphin-mistral-nemo:latest`
-
-### Ejemplo 2: Análisis de Imagen (Cloud)
+#### Ejemplo 2: Vision con Imagen
 
 ```bash
 curl -X POST http://localhost:8765/v1/chat/completions \
--H "Content-Type: application/json" \
--d '{
-  "task": "vision",
-  "privacy_mode": "flexible",
-  "messages": [
-    {
-      "role": "user",
-      "content": [
-        {"type": "text", "text": "¿Qué lugar es este?"},
-        {"type": "image_url", "image_url": {"url": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/320px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg"}}
-      ]
-    }
-  ]
-}'
+  -F 'task=vision' \
+  -F 'privacy_mode=flexible' \
+  -F 'messages=[{"role":"user","content":[{"type":"text","text":"¿Qué ves?"},{"type":"image","file_index":0}]}]' \
+  -F 'files=@imagen.jpg'
 ```
 
-**Modelo usado**: `gemini/gemini-2.5-pro`
-
-### Ejemplo 3: OCR Local
+#### Ejemplo 3: Audio Grande (Google File API)
 
 ```bash
 curl -X POST http://localhost:8765/v1/chat/completions \
--H "Content-Type: application/json" \
--d '{
-  "task": "ocr",
-  "privacy_mode": "strict",
-  "messages": [
-    {
-      "role": "user",
-      "content": [
-        {"type": "text", "text": "Extrae el texto de esta imagen"},
-        {"type": "image_url", "image_url": {"url": "URL_DE_TU_IMAGEN"}}
-      ]
-    }
-  ]
-}'
+  -F 'task=vision' \
+  -F 'privacy_mode=flexible' \
+  -F 'messages=[{"role":"user","content":[{"type":"text","text":"Transcribe"},{"type":"audio","file_index":0}]}]' \
+  -F 'files=@audio_large.mp3'
 ```
 
-**Modelo usado**: `ollama/deepseek-ocr:3b`
+---
+
+### 2. Embeddings API
+
+Endpoints separados para embeddings de texto, imagen y audio.
+
+#### 2.1 Texto `/v1/embeddings/text`
+
+```bash
+curl -X POST http://localhost:8765/v1/embeddings/text \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Un texto de ejemplo", "normalize": true}'
+```
+
+**Modelo:** `BAAI/bge-m3` (1024 dimensiones)
+
+#### 2.2 Imagen `/v1/embeddings/image`
+
+```bash
+curl -X POST http://localhost:8765/v1/embeddings/image \
+  -F "file=@imagen.jpg"
+```
+
+**Modelo:** `google/siglip-so400m-patch14-384` (1152 dim)
+
+#### 2.3 Audio `/v1/embeddings/audio`
+
+```bash
+curl -X POST http://localhost:8765/v1/embeddings/audio \
+  -F "file=@audio.wav"
+```
+
+**Modelo:** `laion/clap-htsat-unfused` (512 dim)
+
+**Ver:** [`EMBEDDINGS.md`](EMBEDDINGS.md) para documentación completa
+
+---
 
 ## 🗺️ Routing de Modelos
 
-| Task | Privacy: Strict (Local) | Privacy: Flexible (Cloud) |
-|------|------------------------|---------------------------|
-| **chat** | `ollama/dolphin-mistral-nemo:latest` | `gemini/gemini-2.5-flash` |
-| **vision** | `ollama/qwen3-vl:8b` | `gemini/gemini-2.5-pro` |
+### Chat Completions
+
+| Task | Privacy: Strict | Privacy: Flexible |
+|------|----------------|-------------------|
+| **chat** | `ollama/dolphin-mistral-nemo` | `gemini/gemini-2.5-flash` |
+| **vision** | `ollama/qwen3-vl:8b` | `gemini/gemini-2.5-flash` |
 | **ocr** | `ollama/deepseek-ocr:3b` | `gemini/gemini-2.5-flash` |
-| **embedding** | `ollama/nomic-embed-text:latest` | `ollama/nomic-embed-text:latest` |
+
+### Embeddings
+
+| Modalidad | Modelo | Dimensiones |
+|-----------|--------|-------------|
+| **texto** | `BAAI/bge-m3` | 1024 |
+| **imagen** | `google/siglip-so400m-patch14-384` | 1152 |
+| **audio** | `laion/clap-htsat-unfused` | 512 |
+
+---
 
 ## 📁 Estructura del Proyecto
 
 ```
 llm-endpoints/
-├── main.py                 # Aplicación FastAPI principal
-├── config.py              # Configuración y MODEL_ROUTER
-├── requirements.txt       # Dependencias
-├── .env.example          # Template de variables de entorno
+├── main.py                      # FastAPI app principal
+├── config.py                    # Configuración y routing
+├── requirements.txt             # Dependencias
+├── .env.example                # Template de variables
+│
 ├── routers/
-│   ├── __init__.py
-│   └── chat.py           # Endpoint de chat completions
+│   ├── chat.py                 # Chat completions multimodal
+│   └── embeddings.py           # Endpoints de embeddings
+│
+├── services/
+│   ├── llm_client.py           # Cliente LiteLLM
+│   ├── router.py               # Lógica de routing
+│   ├── file_processor.py       # Procesamiento de archivos
+│   ├── google_file_api.py      # Google File API client
+│   └── embedding_service.py    # Servicio de embeddings
+│
 ├── schemas/
-│   ├── __init__.py
-│   ├── requests.py       # Pydantic schemas de request
-│   └── responses.py      # Pydantic schemas de response
-└── services/
-    ├── __init__.py
-    ├── router.py         # Lógica de routing de modelos
-    └── llm_client.py     # Cliente LiteLLM
+│   ├── requests.py             # Schemas de request
+│   └── responses.py            # Schemas de response
+│
+└── docs/
+    ├── MULTIMODAL_CHAT.md      # Guía de uso multimodal
+    ├── EMBEDDINGS.md           # Guía de embeddings
+    ├── GEMINI_CONFIG.md        # Configuración de Gemini
+    └── RTX4090_OPTIMIZATIONS.md # Optimizaciones GPU
 ```
 
-## 🔍 Health Check
+---
+
+## 🔧 Uso Avanzado
+
+### Python SDK
+
+```python
+import requests
+import json
+
+# Chat simple
+response = requests.post(
+    "http://localhost:8765/v1/chat/completions",
+    data={
+        "task": "chat",
+        "privacy_mode": "strict",
+        "messages": json.dumps([
+            {"role": "user", "content": "Hola"}
+        ])
+    }
+)
+
+print(response.json()["choices"][0]["message"]["content"])
+
+# Vision con imagen
+with open("imagen.jpg", "rb") as f:
+    response = requests.post(
+        "http://localhost:8765/v1/chat/completions",
+        data={
+            "task": "vision",
+            "privacy_mode": "flexible",
+            "messages": json.dumps([{
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "Describe"},
+                    {"type": "image", "file_index": 0}
+                ]
+            }])
+        },
+        files=[("files", ("imagen.jpg", f, "image/jpeg"))]
+    )
+```
+
+---
+
+## 🎓 Casos de Uso
+
+### 1. RAG con Embeddings Multimodales
+```python
+# Generar embeddings de documentos con imágenes
+text_emb = embed_text("Contenido del documento")
+image_emb = embed_image("diagrama.png")
+
+# Buscar en base de datos vectorial
+results = vector_db.search(query_embedding, top_k=5)
+```
+
+### 2. Análisis de Imágenes Privado
+```python
+# OCR local de documentos sensibles
+response = chat(
+    task="ocr",
+    privacy_mode="strict",  # ¡Sin enviar a cloud!
+    messages=[...],
+    files=["factura.png"]
+)
+```
+
+### 3. Transcripción de Audio Largo
+```python
+# Audio de 10MB se sube automáticamente a Google File API
+response = chat(
+    task="vision",
+    privacy_mode="flexible",
+    messages=[...],
+    files=["reunion_1hora.mp3"]  # Sube a Google, retorna URI
+)
+```
+
+---
+
+## 📊 Monitoreo y Health Check
 
 ```bash
+# Health check
 curl http://localhost:8765/health
-```
 
-Respuesta esperada:
-```json
-{"status": "ok"}
-```
-
-## 📊 Listar Modelos Disponibles
-
-```bash
+# Listar modelos
 curl http://localhost:8765/v1/models
+
+# Info de embeddings
+curl http://localhost:8765/v1/embeddings/models
 ```
+
+---
 
 ## 🐛 Troubleshooting
 
 ### Error: "Modelo no encontrado"
-- Verificar que Ollama está corriendo: `ollama list`
-- Descargar el modelo faltante: `ollama pull <modelo>`
+```bash
+# Verificar Ollama
+ollama list
 
-### Error: "Error de autenticación"
-- Verificar que `GEMINI_API_KEY` está configurada en `.env`
-- Verificar que la API key es válida
+# Descargar modelo específico
+ollama pull CognitiveComputations/dolphin-mistral-nemo:latest
+```
 
-### Error: "Connection refused"
-- Verificar que Ollama está corriendo en `http://localhost:11434`
-- Cambiar `OLLAMA_BASE_URL` en `.env` si es necesario
+### Error: Autenticación Gemini
+```bash
+# Verificar .env
+cat .env | grep GEMINI_API_KEY
+
+# Obtener nueva API key
+# https://makersuite.google.com/app/apikey
+```
+
+### Archivo grande + privacy_mode=strict
+```
+Error 501: "Procesamiento local de archivos grandes en desarrollo"
+
+Solución: Usar privacy_mode=flexible para archivos >= 5MB
+```
+
+---
+
+## 📖 Documentación Adicional
+
+- **[MULTIMODAL_CHAT.md](MULTIMODAL_CHAT.md)** - Guía completa de chat multimodal
+- **[EMBEDDINGS.md](EMBEDDINGS.md)** - API de embeddings multimodales
+- **[GEMINI_CONFIG.md](GEMINI_CONFIG.md)** - Configurar Google Gemini
+- **[RTX4090_OPTIMIZATIONS.md](RTX4090_OPTIMIZATIONS.md)** - Optimizaciones GPU
+
+---
+
+## 🚀 Optimizaciones
+
+### RTX 4090
+- ✅ FP16 automático para embeddings
+- ✅ cuDNN benchmark habilitado
+- ✅ TF32 para matrix multiplications
+- 📈 2-3x más rápido en inferencia
+
+**Ver:** [`RTX4090_OPTIMIZATIONS.md`](RTX4090_OPTIMIZATIONS.md)
+
+---
+
+## 🧪 Testing
+
+```bash
+# Tests de chat multimodal
+python test_multimodal_chat.py
+
+# Tests de embeddings
+python test_embeddings.py
+```
+
+---
 
 ## 📝 Licencia
 
@@ -232,4 +357,13 @@ MIT
 
 ## 🤝 Contribuciones
 
-Las contribuciones son bienvenidas. Por favor abre un issue o pull request.
+Las contribuciones son bienvenidas. Abre un issue o pull request.
+
+---
+
+## 🔗 Enlaces Útiles
+
+- [Google AI Studio](https://makersuite.google.com/)
+- [Ollama](https://ollama.ai/)
+- [LiteLLM Docs](https://docs.litellm.ai/)
+- [FastAPI](https://fastapi.tiangolo.com/)

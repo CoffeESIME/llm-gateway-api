@@ -55,23 +55,39 @@ class ChatMessage(BaseModel):
 
 class ChatCompletionRequest(BaseModel):
     """
-    Request para chat completions con soporte multimodal
-    Acepta archivos multimedia directamente en multipart/form-data
+    Request para chat completions multimodal con archivos adjuntos
+    
+    **Formato:** multipart/form-data
+    
+    **Características:**
+    - Soporta texto, imágenes, audio y video
+    - Archivos < 5MB: Base64 data URI
+    - Archivos >= 5MB: Google File API (requiere privacy_mode=flexible)
+    - Routing automático entre modelos locales y cloud
+    
+    **Tasks disponibles:**
+    - `chat`: Conversación general
+    - `vision`: Análisis de imágenes/video
+    - `ocr`: Extracción de texto de imágenes
+    
+    **Privacy Modes:**
+    - `strict`: Solo modelos locales (Ollama) - máxima privacidad
+    - `flexible`: Puede usar modelos cloud (Gemini) - máximo rendimiento
     """
     # Parámetros de routing
-    task: Literal["chat", "vision", "ocr", "embedding"] = Field(
+    task: Literal["chat", "vision", "ocr"] = Field(
         ...,
         description="Tipo de tarea a realizar (determina qué modelo usar)"
     )
     privacy_mode: Literal["strict", "flexible"] = Field(
         ...,
-        description="Modo de privacidad - strict: local, flexible: cloud"
+        description="Modo de privacidad - strict: solo local, flexible: permite cloud"
     )
     
     # Parámetros de chat
     messages: List[ChatMessage] = Field(
         ...,
-        description="Lista de mensajes en la conversación"
+        description="Lista de mensajes en la conversación. Puede incluir texto y referencias a archivos (file_index)"
     )
     
     # Parámetros opcionales
@@ -83,7 +99,7 @@ class ChatCompletionRequest(BaseModel):
         0.7,
         ge=0.0,
         le=2.0,
-        description="Temperatura de generación"
+        description="Temperatura de generación (0.0 = determinista, 2.0 = muy creativo)"
     )
     max_tokens: Optional[int] = Field(
         None,
@@ -92,13 +108,13 @@ class ChatCompletionRequest(BaseModel):
     )
     stream: Optional[bool] = Field(
         False,
-        description="Si se desea streaming de la respuesta"
+        description="Si se desea streaming de la respuesta (no soportado actualmente)"
     )
     top_p: Optional[float] = Field(
         None,
         ge=0.0,
         le=1.0,
-        description="Nucleus sampling parameter"
+        description="Nucleus sampling parameter (alternativa a temperature)"
     )
     
     class Config:
@@ -108,7 +124,7 @@ class ChatCompletionRequest(BaseModel):
                     "task": "chat",
                     "privacy_mode": "strict",
                     "messages": [
-                        {"role": "user", "content": "Resume este documento confidencial..."}
+                        {"role": "user", "content": "Resume este documento confidencial"}
                     ],
                     "temperature": 0.7
                 },
@@ -119,11 +135,25 @@ class ChatCompletionRequest(BaseModel):
                         {
                             "role": "user",
                             "content": [
-                                {"type": "text", "text": "¿Qué lugar es este?"},
+                                {"type": "text", "text": "¿Qué ves en esta imagen?"},
                                 {"type": "image", "file_index": 0}
                             ]
                         }
                     ]
+                },
+                {
+                    "task": "ocr",
+                    "privacy_mode": "strict",
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": [
+                                {"type": "text", "text": "Extrae el texto"},
+                                {"type": "image", "file_index": 0}
+                            ]
+                        }
+                    ],
+                    "temperature": 0.0
                 }
             ]
         }
