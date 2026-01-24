@@ -171,6 +171,10 @@ class EmbeddingService:
             
             inputs = processor(images=image, return_tensors="pt").to(self._device)
             
+            # ✨ FIX: Convertir inputs al mismo tipo que el modelo (FP16 si está en GPU)
+            if self._device == "cuda":
+                inputs = {k: v.half() if v.dtype == torch.float32 else v for k, v in inputs.items()}
+            
             with torch.no_grad():
                 outputs = model.get_image_features(**inputs)
                 
@@ -178,11 +182,12 @@ class EmbeddingService:
                     # Normalizar vector L2 (importante para búsquedas por coseno)
                     outputs = outputs / outputs.norm(p=2, dim=-1, keepdim=True)
             
-            vector = outputs[0].cpu().tolist()
+            vector = outputs[0].cpu().float().tolist()  # Convertir a float32 para CPU
             return vector
             
         except Exception as e:
             raise RuntimeError(f"Error generando embedding de imagen: {str(e)}")
+
     
     def embed_audio(
         self, 
@@ -234,6 +239,10 @@ class EmbeddingService:
                 return_tensors="pt"
             ).to(self._device)
             
+            # ✨ FIX: Convertir inputs al mismo tipo que el modelo (FP16 si está en GPU)
+            if self._device == "cuda":
+                inputs = {k: v.half() if v.dtype == torch.float32 else v for k, v in inputs.items()}
+            
             with torch.no_grad():
                 outputs = model.get_audio_features(**inputs)
                 
@@ -241,7 +250,7 @@ class EmbeddingService:
                     # Normalizar vector L2
                     outputs = outputs / outputs.norm(p=2, dim=-1, keepdim=True)
             
-            vector = outputs[0].cpu().tolist()
+            vector = outputs[0].cpu().float().tolist()  # Convertir a float32 para CPU
             return vector
             
         except Exception as e:

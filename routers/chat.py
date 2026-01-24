@@ -3,6 +3,7 @@ Router de Chat Completions Multimodal
 Endpoint principal que acepta archivos multimedia directamente
 """
 import logging
+import traceback
 import time
 import uuid
 import json
@@ -60,24 +61,44 @@ async def chat_completions(
     ]
     ```
     """
+    request_id = uuid.uuid4().hex[:8]
+    start_time = time.time()
+    
+    # Log de inicio de request
+    logger.info(f"\n{'='*60}")
+    logger.info(f"🔷 [Request {request_id}] Nueva petición de chat completions")
+    logger.info(f"   Task: {task}")
+    logger.info(f"   Privacy Mode: {privacy_mode}")
+    logger.info(f"   Temperature: {temperature}")
+    logger.info(f"   Max Tokens: {max_tokens}")
+    logger.info(f"   Model Override: {model}")
+    logger.info(f"   Files Attached: {len(files) if files else 0}")
+    
     try:
         # 1. Validar task y privacy_mode primero (antes de procesar archivos)
+        logger.debug(f"[{request_id}] Validando parámetros...")
         if task not in ["chat", "vision", "ocr"]:
+            logger.error(f"[{request_id}] ❌ Task inválido: {task}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Task inválido: {task}. Debe ser: chat, vision, ocr"
             )
         
         if privacy_mode not in ["strict", "flexible"]:
+            logger.error(f"[{request_id}] ❌ Privacy mode inválido: {privacy_mode}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Privacy mode inválido: {privacy_mode}. Debe ser: strict, flexible"
             )
         
         # 2. Parsear messages JSON
+        logger.debug(f"[{request_id}] Parseando messages JSON...")
         try:
             messages_data = json.loads(messages)
+            logger.debug(f"[{request_id}] Messages parseados: {len(messages_data)} mensaje(s)")
         except json.JSONDecodeError as e:
+            logger.error(f"[{request_id}] ❌ Error parseando JSON: {str(e)}")
+            logger.error(f"[{request_id}] Messages recibidos: {messages[:200]}...")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Error parseando messages JSON: {str(e)}"
@@ -86,7 +107,7 @@ async def chat_completions(
         # 3. Procesar archivos si existen
         files_metadata = []
         if files:
-            logger.info(f"📎 Procesando {len(files)} archivo(s) adjunto(s)")
+            logger.info(f"[{request_id}] 📎 Procesando {len(files)} archivo(s) adjunto(s)")
             for idx, file in enumerate(files):
                 try:
                     # Determinar tipo de archivo según content-type
@@ -99,54 +120,89 @@ async def chat_completions(
                         elif file.content_type.startswith("application/"):
                             file_type = "document"
                     
+                    logger.debug(f"[{request_id}] Procesando archivo {idx}: {file.filename} ({file_type})")
                     file_meta = await process_uploaded_file(file, file_type)
                     files_metadata.append(file_meta)
                     logger.info(
-                        f"  [{idx}] {file_meta['filename']} "
+                        f"[{request_id}]   [{idx}] {file_meta['filename']} "
                         f"({file_meta['size'] / 1024:.1f}KB, {file_meta['content_type']})"
                     )
                 except ValueError as ve:
                     # Error específico de validación de archivo
+                    logger.error(f"[{request_id}] ❌ Error validando archivo {idx}: {str(ve)}")
+                    logger.error(f"[{request_id}] Filename: {file.filename}, Content-Type: {file.content_type}")
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
                         detail=f"Error en archivo {idx}: {str(ve)}"
                     )
+                except Exception as e:
+                    logger.error(f"[{request_id}] ❌ Error inesperado procesando archivo {idx}:")
+                    logger.error(f"[{request_id}] {traceback.format_exc()}")
+                    raise HTTPException(
+                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        detail=f"Error procesando archivo {idx}: {str(e)}"
+                    )
         
         # 4. Preparar mensajes con archivos
+        logger.debug(f"[{request_id}] Preparando contenido multimodal...")
         try:
             prepared_messages = prepare_multimodal_content(
                 messages_data, 
                 files_metadata,
                 privacy_mode=privacy_mode  # Pasar privacy_mode para decisión de File API
             )
+            logger.debug(f"[{request_id}] ✅ Mensajes preparados exitosamente")
         except NotImplementedError as e:
             # Archivo grande con privacy_mode=strict (chunking no implementado)
+            logger.warning(f"[{request_id}] ⚠️ Funcionalidad no implementada: {str(e)[:100]}...")
             raise HTTPException(
                 status_code=status.HTTP_501_NOT_IMPLEMENTED,
                 detail=str(e)
             )
+        except Exception as e:
+            logger.error(f"[{request_id}] ❌ Error preparando mensajes multimodales:")
+            logger.error(f"[{request_id}] {traceback.format_exc()}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Error preparando mensajes: {str(e)}"
+            )
         
         # 5. Seleccionar modelo usando el router
-        selected_model = model_router.select_model(
-            task=task,
-            privacy_mode=privacy_mode,
-            override_model=model
-        )
+        logger.debug(f"[{request_id}] Seleccionando modelo...")
+        try:
+            selected_model = model_router.select_model(
+                task=task,
+                privacy_mode=privacy_mode,
+                override_model=model
+            )
+            logger.info(f"[{request_id}] 🎯 Modelo seleccionado: {selected_model}")
+        except Exception as e:
+            logger.error(f"[{request_id}] ❌ Error seleccionando modelo:")
+            logger.error(f"[{request_id}] {traceback.format_exc()}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Error seleccionando modelo: {str(e)}"
+            )
         
-        logger.info(f"🎯 Modelo seleccionado: {selected_model}")
-        logger.info(f"📨 Enviando {len(prepared_messages)} mensaje(s) al LLM")
+        logger.info(f"[{request_id}] 📨 Enviando {len(prepared_messages)} mensaje(s) al LLM")
         
         # 6. Llamar al LLM
-        llm_response = await call_llm(
-            model=selected_model,
-            messages=prepared_messages,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            stream=stream,
-            top_p=top_p
-        )
+        try:
+            llm_response = await call_llm(
+                model=selected_model,
+                messages=prepared_messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                stream=stream,
+                top_p=top_p
+            )
+        except Exception as e:
+            # El error ya está loggeado en llm_client.py
+            logger.error(f"[{request_id}] ❌ Error en llamada al LLM")
+            raise  # Re-raise para que el usuario vea el error
         
         # 7. Convertir respuesta de LiteLLM a nuestro formato
+        logger.debug(f"[{request_id}] Construyendo respuesta...")
         response_dict = {
             "id": llm_response.id if hasattr(llm_response, 'id') else f"chatcmpl-{uuid.uuid4().hex[:8]}",
             "object": "chat.completion",
@@ -172,13 +228,27 @@ async def chat_completions(
                 "completion_tokens": llm_response.usage.completion_tokens,
                 "total_tokens": llm_response.usage.total_tokens
             }
+            logger.info(f"[{request_id}] 📊 Tokens: {response_dict['usage']['total_tokens']} total")
         
-        logger.info(f"✅ Respuesta generada exitosamente")
+        elapsed = time.time() - start_time
+        logger.info(f"[{request_id}] ✅ Respuesta generada exitosamente en {elapsed:.2f}s")
+        logger.info(f"{'='*60}\n")
         return response_dict
+        
+    except HTTPException:
+        # Re-raise HTTP exceptions sin alterar
+        elapsed = time.time() - start_time
+        logger.error(f"[{request_id}] ⏱️ Request falló en {elapsed:.2f}s")
+        logger.info(f"{'='*60}\n")
+        raise
         
     except ValueError as e:
         # Errores de validación
-        logger.error(f"Validation error: {str(e)}")
+        elapsed = time.time() - start_time
+        logger.error(f"[{request_id}] ❌ Validation error: {str(e)}")
+        logger.error(f"[{request_id}] {traceback.format_exc()}")
+        logger.info(f"[{request_id}] ⏱️ Request falló en {elapsed:.2f}s")
+        logger.info(f"{'='*60}\n")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
@@ -186,11 +256,17 @@ async def chat_completions(
     
     except Exception as e:
         # Errores generales
-        logger.error(f"Error en chat completions: {str(e)}")
+        elapsed = time.time() - start_time
+        logger.error(f"[{request_id}] ❌ ERROR INESPERADO: {type(e).__name__}")
+        logger.error(f"[{request_id}] Mensaje: {str(e)}")
+        logger.error(f"[{request_id}] {traceback.format_exc()}")
+        logger.info(f"[{request_id}] ⏱️ Request falló en {elapsed:.2f}s")
+        logger.info(f"{'='*60}\n")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error al procesar la petición: {str(e)}"
         )
+
 
 
 @router.get("/models")

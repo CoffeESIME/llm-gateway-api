@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     # Mapeo de tareas y modos de privacidad a modelos específicos
     MODEL_ROUTER: Dict[str, Dict[str, str]] = {
         "chat": {
-            "strict": "ollama/CognitiveComputations/dolphin-mistral-nemo:latest",
+            "strict": "ollama/gpt-oss:20b",
             "flexible": "gemini/gemini-2.5-flash"
         },
         "vision": {
