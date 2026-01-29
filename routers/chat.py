@@ -187,6 +187,10 @@ async def chat_completions(
         logger.info(f"[{request_id}] 📨 Enviando {len(prepared_messages)} mensaje(s) al LLM")
         
         # 6. Llamar al LLM
+        # NOTA: Los modelos de vision/ocr locales (Ollama) no soportan response_format=json_object
+        # Por eso deshabilitamos json_response para estas tareas
+        should_use_json_response = task == "chat"  # Solo chat usa JSON response por defecto
+        
         try:
             llm_response = await call_llm(
                 model=selected_model,
@@ -194,6 +198,7 @@ async def chat_completions(
                 temperature=temperature,
                 max_tokens=max_tokens,
                 stream=stream,
+                json_response=should_use_json_response,
                 top_p=top_p
             )
         except Exception as e:
