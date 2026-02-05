@@ -1,0 +1,50 @@
+# Virtual environments
+venv/
+.venv/
+env/
+.env/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Docker files themselves (no need to copy into container)
+Dockerfile
+docker-compose.yml
+docker-compose*.yml
+
+# Environment files (secrets)
+.env
+
+# Local cache
+.cache/
+*.egg-info/
+dist/
+build/
+
+# Huggingface cache (if you want to exclude it)
+# hf_cache/
+
+# Tests artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Docs (optional, not needed in container)
+docs/
+
+# OS files
+.DS_Store
+Thumbs.db

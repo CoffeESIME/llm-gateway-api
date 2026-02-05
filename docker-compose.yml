@@ -1,0 +1,29 @@
+services:
+  llm-gateway:
+    build: .
+    container_name: llm-gateway
+    ports:
+      - "8765:8765"
+    volumes:
+      # Montar directorio actual para hot-reloading en desarrollo
+      - .:/app
+      # Opcional: Persistir modelos de HuggingFace para no descargarlos cada vez
+      # - ./hf_cache:/root/.cache/huggingface
+    env_file:
+      - .env
+    environment:
+      - TOKENIZERS_PARALLELISM=false
+    # Comando para desarrollo con reload
+    command: uvicorn main:app --host 0.0.0.0 --port 8765 --reload
+    
+    # Configuración de GPU (NVIDIA)
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+    # Reiniciar siempre (útil si hay errores transitorios)
+    restart: unless-stopped
