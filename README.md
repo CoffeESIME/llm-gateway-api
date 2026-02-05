@@ -138,7 +138,7 @@ curl -X POST http://localhost:8765/v1/embeddings/audio \
 
 **Modelo:** `laion/clap-htsat-unfused` (512 dim)
 
-**Ver:** [`EMBEDDINGS.md`](EMBEDDINGS.md) para documentación completa
+**Ver:** [`EMBEDDINGS.md`](docs/EMBEDDINGS.md) para documentación completa
 
 ---
 
@@ -320,10 +320,10 @@ Solución: Usar privacy_mode=flexible para archivos >= 5MB
 
 ## 📖 Documentación Adicional
 
-- **[MULTIMODAL_CHAT.md](MULTIMODAL_CHAT.md)** - Guía completa de chat multimodal
-- **[EMBEDDINGS.md](EMBEDDINGS.md)** - API de embeddings multimodales
-- **[GEMINI_CONFIG.md](GEMINI_CONFIG.md)** - Configurar Google Gemini
-- **[RTX4090_OPTIMIZATIONS.md](RTX4090_OPTIMIZATIONS.md)** - Optimizaciones GPU
+- **[MULTIMODAL_CHAT.md](docs/MULTIMODAL_CHAT.md)** - Guía completa de chat multimodal
+- **[EMBEDDINGS.md](docs/EMBEDDINGS.md)** - API de embeddings multimodales
+- **[GEMINI_CONFIG.md](docs/GEMINI_CONFIG.md)** - Configurar Google Gemini
+- **[RTX4090_OPTIMIZATIONS.md](docs/RTX4090_OPTIMIZATIONS.md)** - Optimizaciones GPU
 
 ---
 
@@ -335,7 +335,7 @@ Solución: Usar privacy_mode=flexible para archivos >= 5MB
 - ✅ TF32 para matrix multiplications
 - 📈 2-3x más rápido en inferencia
 
-**Ver:** [`RTX4090_OPTIMIZATIONS.md`](RTX4090_OPTIMIZATIONS.md)
+**Ver:** [`RTX4090_OPTIMIZATIONS.md`](docs/RTX4090_OPTIMIZATIONS.md)
 
 ---
 

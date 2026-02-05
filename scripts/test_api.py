@@ -2,7 +2,12 @@
 Script de prueba para verificar el API Gateway
 """
 import sys
+import os
 import asyncio
+
+# Add project root to sys.path to allow imports
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from services.router import model_router
 from services.llm_client import call_llm
 from config import settings
