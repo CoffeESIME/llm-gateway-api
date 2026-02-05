@@ -152,6 +152,37 @@ async def chat_completions(
                 privacy_mode=privacy_mode  # Pasar privacy_mode para decisión de File API
             )
             logger.debug(f"[{request_id}] ✅ Mensajes preparados exitosamente")
+            
+            # DEBUG: Detectar si hay contenido de imagen en los mensajes
+            has_image_content = False
+            for msg in prepared_messages:
+                content = msg.get('content', '')
+                if isinstance(content, list):
+                    for part in content:
+                        if isinstance(part, dict) and part.get('type') == 'image_url':
+                            has_image_content = True
+                            break
+                if has_image_content:
+                    break
+            
+            print(f"\n🖼️ [DEBUG] Has image content in messages: {has_image_content}")
+            print(f"🖼️ [DEBUG] Task: {task}, Privacy: {privacy_mode}")
+            
+            # Validación: Si hay imágenes pero el task es "chat" con modelo local, advertir
+            if has_image_content and task == "chat" and privacy_mode == "strict":
+                logger.warning(f"[{request_id}] ⚠️ Mensajes contienen imágenes pero task='chat' con privacy='strict'")
+                logger.warning(f"[{request_id}] El modelo local de chat (gpt-oss) NO soporta imágenes!")
+                logger.warning(f"[{request_id}] Cambia task='vision' o privacy_mode='flexible'")
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=(
+                        "Los mensajes contienen imágenes pero el task='chat' con privacy_mode='strict' "
+                        "usa un modelo de solo texto (gpt-oss) que no soporta imágenes. "
+                        "Opciones: (1) Usa task='vision' para análisis de imágenes, o "
+                        "(2) Usa privacy_mode='flexible' para usar Gemini que soporta visión."
+                    )
+                )
+            
         except NotImplementedError as e:
             # Archivo grande con privacy_mode=strict (chunking no implementado)
             logger.warning(f"[{request_id}] ⚠️ Funcionalidad no implementada: {str(e)[:100]}...")
@@ -187,9 +218,18 @@ async def chat_completions(
         logger.info(f"[{request_id}] 📨 Enviando {len(prepared_messages)} mensaje(s) al LLM")
         
         # 6. Llamar al LLM
-        # NOTA: Los modelos de vision/ocr locales (Ollama) no soportan response_format=json_object
-        # Por eso deshabilitamos json_response para estas tareas
-        should_use_json_response = task == "chat"  # Solo chat usa JSON response por defecto
+        # NOTA: Los modelos locales (Ollama) NO soportan response_format=json_object
+        # Esto aplica a TODOS los tasks cuando privacy_mode=strict (modelos locales)
+        # Solo usamos json_response=True para modelos cloud (flexible) en task chat
+        is_local_model = privacy_mode == "strict"
+        should_use_json_response = (task == "chat") and (not is_local_model)
+        
+        # DEBUG: Print para diagnosticar json_response
+        print(f"\n🔍 [DEBUG] json_response decision:")
+        print(f"   - Task: {task}")
+        print(f"   - Privacy mode: {privacy_mode}")
+        print(f"   - Is local model: {is_local_model}")
+        print(f"   - should_use_json_response: {should_use_json_response}")
         
         try:
             llm_response = await call_llm(

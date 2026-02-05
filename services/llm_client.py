@@ -135,6 +135,43 @@ async def call_llm(
             params["response_format"] = {"type": "json_object"}
             logger.debug("📋 Solicitando response_format: json_object")
         
+        # ============== DEBUG PRINTS ==============
+        print("\n" + "="*80)
+        print("🚀 [DEBUG] LLAMADA A LLM - PROMPT ENVIADO")
+        print("="*80)
+        print(f"📌 Modelo: {model}")
+        print(f"🌡️  Temperature: {temperature}")
+        print(f"📊 Max tokens: {max_tokens}")
+        print(f"📑 JSON response mode: {json_response}")
+        print(f"🔢 Número de mensajes: {len(messages)}")
+        print("-"*80)
+        print("📝 MENSAJES COMPLETOS:")
+        for idx, msg in enumerate(messages):
+            role = msg.get('role', 'unknown')
+            content = msg.get('content', '')
+            print(f"\n--- Mensaje {idx} [{role.upper()}] ---")
+            if isinstance(content, str):
+                print(content)
+            elif isinstance(content, list):
+                # Contenido multimodal
+                for part_idx, part in enumerate(content):
+                    if isinstance(part, dict):
+                        if part.get('type') == 'text':
+                            print(f"  [TEXT PART {part_idx}]: {part.get('text', '')}")
+                        elif part.get('type') == 'image_url':
+                            img_url = part.get('image_url', {}).get('url', '')
+                            print(f"  [IMAGE PART {part_idx}]: {img_url[:100]}..." if len(img_url) > 100 else f"  [IMAGE PART {part_idx}]: {img_url}")
+                        else:
+                            print(f"  [OTHER PART {part_idx}]: {part}")
+                    else:
+                        print(f"  [PART {part_idx}]: {part}")
+            else:
+                print(f"  <contenido tipo: {type(content)}>")
+        print("-"*80)
+        print(f"📦 Params adicionales (kwargs): {kwargs}")
+        print("="*80 + "\n")
+        # ========== FIN DEBUG PRINTS ==========
+        
         # Llamar a LiteLLM
         logger.debug("🔄 Enviando request a LiteLLM...")
         response = completion(**params)
@@ -151,8 +188,19 @@ async def call_llm(
                 if cleaned_content != original_content:
                     logger.debug("🧹 Respuesta JSON limpiada de markdown code blocks")
             
-            content_preview = response.choices[0].message.content[:200]
-            logger.info(f"✅ Respuesta recibida ({len(response.choices[0].message.content)} chars): {content_preview}...")
+            final_content = response.choices[0].message.content
+            content_len = len(final_content) if final_content else 0
+            content_preview = final_content[:200] if final_content else ""
+            logger.info(f"✅ Respuesta recibida ({content_len} chars): {content_preview}...")
+            
+            # Verificar que la respuesta no esté vacía
+            if not final_content or content_len == 0:
+                logger.error(f"❌ El modelo {model} devolvió una respuesta vacía (0 chars)")
+                raise Exception(
+                    f"El modelo '{model}' devolvió una respuesta vacía. "
+                    "Esto puede ocurrir si el modelo no soporta el tipo de contenido enviado "
+                    "o si hay un problema con los parámetros de la petición."
+                )
             
             # Log de usage si está disponible
             if hasattr(response, 'usage') and response.usage:
