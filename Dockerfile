@@ -5,9 +5,7 @@ FROM python:3.10-slim
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     # Evitar problemas con directorios de cache en build
-    PIP_NO_CACHE_DIR=off \
-    # Configuración para Transformers offline si ya se tienen los modelos
-    HF_HUB_OFFLINE=0
+    PIP_NO_CACHE_DIR=off
 
 # Instalar dependencias del sistema necesarias
 # libsndfile1: para soundfile

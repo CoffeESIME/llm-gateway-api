@@ -7,8 +7,8 @@ services:
     volumes:
       # Montar directorio actual para hot-reloading en desarrollo
       - .:/app
-      # Opcional: Persistir modelos de HuggingFace para no descargarlos cada vez
-      # - ./hf_cache:/root/.cache/huggingface
+      # Persistir modelos de HuggingFace (Windows: usar ruta absoluta)
+      - C:/Users/USER/.cache/huggingface:/root/.cache/huggingface
     env_file:
       - .env
     environment:

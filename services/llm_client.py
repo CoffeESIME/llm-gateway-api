@@ -26,6 +26,46 @@ os.environ["OLLAMA_API_BASE"] = settings.ollama_base_url
 logger.debug(f"✅ OLLAMA_API_BASE: {settings.ollama_base_url}")
 
 
+def _prepare_ocr_messages(messages: list) -> list:
+    """
+    Prepara mensajes para tareas de OCR con modelos de visión.
+    
+    Usa un prompt estructurado que:
+    - Extrae todo el texto de forma literal
+    - Preserva el formato original (saltos de línea, estrofas)
+    - Mantiene la ortografía española (acentos, ñ)
+    - Devuelve SOLO el texto sin conversación adicional
+    """
+    # Prompt OCR optimizado para modelos inteligentes (qwen3-vl, minicpm-v)
+    OCR_INSTRUCTION = """Analyze the text in this image.
+1. Extract all text verbatim.
+2. Preserve the original formatting (line breaks, stanzas).
+3. Maintain strict Spanish orthography (accents, ñ).
+4. Output ONLY the text, no conversational filler."""
+    
+    # Buscar las imágenes en los mensajes
+    image_parts = []
+    
+    for msg in messages:
+        content = msg.get('content', '')
+        
+        if isinstance(content, list):
+            for part in content:
+                if isinstance(part, dict) and part.get('type') == 'image_url':
+                    image_parts.append(part)
+    
+    if not image_parts:
+        logger.warning("⚠️ No se encontraron imágenes para OCR")
+        return messages  # Fallback al formato original
+    
+    # Construir mensaje: [imágenes] + instrucción OCR
+    prepared_content = image_parts + [{"type": "text", "text": OCR_INSTRUCTION}]
+    
+    logger.info(f"🎯 OCR: {len(image_parts)} imagen(es) preparadas")
+    
+    return [{"role": "user", "content": prepared_content}]
+
+
 def clean_json_response(response: str) -> str:
     """
     Limpia respuestas JSON envueltas en markdown code blocks.
@@ -117,6 +157,19 @@ async def call_llm(
                 logger.debug(f"   Message {idx} [{role}]: {content_preview}")
             else:
                 logger.debug(f"   Message {idx} [{role}]: <multimodal content>")
+        
+        # ========================================
+        # MANEJO ESPECIAL: Tareas de OCR
+        # ========================================
+        # Para OCR usamos msg especial con prompt estructurado y temp=0.0
+        is_ocr_model = any(m in model.lower() for m in ["qwen3-vl", "minicpm-v", "deepseek-ocr"])
+        
+        if is_ocr_model:
+            logger.info("🔧 Modelo de OCR detectado, preparando mensajes y temperatura...")
+            messages = _prepare_ocr_messages(messages)
+            temperature = 0.0  # OCR debe ser determinístico
+            json_response = False  # OCR devuelve texto plano
+            logger.debug(f"   Mensajes reformateados: {len(messages)} mensaje(s), temp=0.0")
         
         # Preparar parámetros
         params = {
