@@ -239,6 +239,7 @@ async def chat_completions(
                 max_tokens=max_tokens,
                 stream=stream,
                 json_response=should_use_json_response,
+                task=task,
                 top_p=top_p
             )
         except Exception as e:

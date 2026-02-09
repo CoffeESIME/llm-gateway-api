@@ -119,6 +119,7 @@ async def call_llm(
     max_tokens: Optional[int] = None,
     stream: bool = False,
     json_response: bool = True,
+    task: Optional[str] = None,
     **kwargs
 ) -> Dict[str, Any]:
     """
@@ -132,6 +133,7 @@ async def call_llm(
         stream: Si se desea streaming
         json_response: Si es True (default), solicita respuesta JSON y limpia
                       markdown code blocks. Si es False, devuelve respuesta raw.
+        task: Tipo de tarea (chat, vision, ocr) para manejo especial
         **kwargs: Parámetros adicionales para el modelo
     
     Returns:
@@ -161,11 +163,11 @@ async def call_llm(
         # ========================================
         # MANEJO ESPECIAL: Tareas de OCR
         # ========================================
-        # Para OCR usamos msg especial con prompt estructurado y temp=0.0
-        is_ocr_model = any(m in model.lower() for m in ["qwen3-vl", "minicpm-v", "deepseek-ocr"])
+        # Solo aplicar lógica OCR cuando task == "ocr"
+        is_ocr_task = task == "ocr"
         
-        if is_ocr_model:
-            logger.info("🔧 Modelo de OCR detectado, preparando mensajes y temperatura...")
+        if is_ocr_task:
+            logger.info("🔧 Tarea OCR detectada, preparando mensajes y temperatura...")
             messages = _prepare_ocr_messages(messages)
             temperature = 0.0  # OCR debe ser determinístico
             json_response = False  # OCR devuelve texto plano
