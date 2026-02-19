@@ -120,6 +120,7 @@ async def call_llm(
     stream: bool = False,
     json_response: bool = True,
     task: Optional[str] = None,
+    top_p: float = 0.9,
     **kwargs
 ) -> Dict[str, Any]:
     """
@@ -178,6 +179,7 @@ async def call_llm(
             "model": model,
             "messages": messages,
             "temperature": temperature,
+            "top_p": top_p,
             "stream": stream,
             **kwargs
         }

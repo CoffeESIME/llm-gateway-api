@@ -34,7 +34,7 @@ async def chat_completions(
     temperature: Optional[float] = Form(0.7, description="Temperatura (0.0-2.0)"),
     max_tokens: Optional[int] = Form(None, description="Máximo de tokens"),
     stream: Optional[bool] = Form(False, description="Streaming habilitado"),
-    top_p: Optional[float] = Form(None, description="Top-p sampling"),
+    top_p: Optional[float] = Form(1.0, description="Top-p sampling (0.0-1.0, default: 1.0)"),
     
     # Archivos multimedia opcionales
     files: Optional[List[UploadFile]] = File(default=None, description="Archivos multimedia adjuntos")
