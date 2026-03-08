@@ -21,6 +21,10 @@ if settings.gemini_api_key:
     os.environ["GEMINI_API_KEY"] = settings.gemini_api_key
     logger.debug("✅ GEMINI_API_KEY configurada")
 
+if settings.openrouter_api_key:
+    os.environ["OPENROUTER_API_KEY"] = settings.openrouter_api_key
+    logger.debug("✅ OPENROUTER_API_KEY configurada")
+
 # Configurar base URL de Ollama
 os.environ["OLLAMA_API_BASE"] = settings.ollama_base_url
 logger.debug(f"✅ OLLAMA_API_BASE: {settings.ollama_base_url}")

@@ -23,6 +23,7 @@ API Gateway inteligente con soporte multimodal que enruta automáticamente entre
 
 ### API Keys
 - **Google Gemini API Key** (para `privacy_mode=flexible`)
+- **OpenRouter API Key** (para modelos a través de OpenRouter)
 
 ### Modelos Ollama
 ```bash

@@ -52,6 +52,7 @@ async def startup_event():
     logger.info("🚀 LLM Gateway API iniciando...")
     logger.info(f"📡 Ollama URL: {settings.ollama_base_url}")
     logger.info(f"🔑 Gemini API configurada: {'✓' if settings.gemini_api_key else '✗'}")
+    logger.info(f"🔑 OpenRouter API configurada: {'✓' if settings.openrouter_api_key else '✗'}")
     logger.info("📋 Modelos configurados:")
     for task, modes in settings.MODEL_ROUTER.items():
         logger.info(f"  {task}:")
